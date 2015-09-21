@@ -1,0 +1,280 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=0" />
+  <title>DrawingApp</title>
+  <link rel="stylesheet" href="css/custom.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/qunit-1.19.0.css"> 
+  <link href='https://fonts.googleapis.com/css?family=Ubuntu' rel='stylesheet' type='text/css'>
+  <script src="js/jquery-1.8.2.min.js"></script> 
+  <script type="text/javascript">
+  
+  var ctx = '';
+  var color = "#000";	
+  var lineSize = 3;
+  var PushCanvasArray = [];
+  var currentStep = -1;
+  
+  $(document).ready(function () {	
+							  
+	  $(".pencil").css("border-color", "#C30");
+	  $(".pencil").css("border-width", 2);
+	  $(".pencil").css("border-style", "solid");
+	  $(".pencil-box:first-child .pencil").css("border-style", "dashed");
+	  
+      // setup new canvas for drawing 
+      setTimeout(function(){
+         clearCanvas(); 
+      }, 1000);
+          
+	  // reset color-menu, set strokeStyle
+      $(".scolor").click(function(){
+          $(".scolor").css("border-color", "#777");
+          $(".scolor").css("border-style", "solid");
+          $(this).css("border-color", "#fff");
+          $(this).css("border-style", "dashed");
+          color = $(this).css("background-color");
+          ctx.beginPath();
+          ctx.strokeStyle = color;		  
+      });
+	  
+      // reset pencil selection (lineWidth), set lineWidth
+      $(".pencil").click(function(){
+          $(".pencil").css("border-color", "#C30");
+		  $(".pencil").css("border-width", 2);
+          $(".pencil").css("border-style", "solid");
+          $(this).css("border-style", "dashed");
+          lineSize = $(this).html();
+          ctx.beginPath();
+          ctx.lineWidth = lineSize;
+      });  
+      
+      // assign functions to the buttons
+      $("#clear").click(function() {
+          clearCanvas();
+      });
+      $("#undo").click(function() {
+          Undo();
+      });
+      $("#redo").click(function() {
+          Redo();
+      });	  
+  });
+  
+  // each time the user draws or adds something to the canvas cPush() is called
+  function cPush() {
+	  currentStep++;
+	  if (currentStep < PushCanvasArray.length) { PushCanvasArray.length = currentStep; }
+	  PushCanvasArray.push(document.getElementById("canvas").toDataURL());
+	  console.log('currentStep= ' + currentStep);	  	  
+	  console.log(PushCanvasArray[currentStep]);
+	  console.log('PushCanvasArray.length= ' + PushCanvasArray.length);
+  }  
+  
+  // function to setup a new canvas for drawing
+  function clearCanvas(){
+	  
+	  // set arrays for undo and redo actions
+	  PushCanvasArray = [];
+      currentStep = -1;
+	  console.log(PushCanvasArray);
+	  console.log('PushCanvasArray.length= ' + PushCanvasArray.length);
+	  console.log('currentStep= ' + currentStep);	  
+	  
+      // define and resize canvas
+      $("#content").height($(window).height()-90);
+      var canvas = '<canvas id="canvas" width="'+$(window).width()+'" height="'+($(window).height()-90)+'"></canvas>';
+      $("#content").html(canvas);
+      
+      // setup canvas
+      ctx=document.getElementById("canvas").getContext("2d");
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineSize;	
+	  
+	  //cPush();
+	  //cPush();
+	  
+      // setup to trigger drawing on mouse or touch
+      $("#canvas").drawTouch(); // mobile
+      $("#canvas").drawPointer(); //ie
+      $("#canvas").drawMouse();
+  }
+  
+  // Undo action
+  function Undo() {
+	console.log("currentStep before calling Undo= " + currentStep);  
+    if (currentStep > 0) {
+        currentStep--;
+		console.log("currentStep after calling Undo= " + currentStep);
+		console.log("PushCanvasArray[currentStep]: " + PushCanvasArray[currentStep]);	
+		
+		ctx.clearRect(0, 0, $('#canvas').width(), $('canvas').height());
+        var canvasPic = new Image();
+        canvasPic.src = PushCanvasArray[currentStep];
+        canvasPic.onload = function () { ctx.drawImage(canvasPic, 0, 0); }		
+		}
+  }
+  
+  // Redo action
+  function Redo() {
+	  console.log("currentStep before calling Redo= " + currentStep);
+	  if (currentStep < PushCanvasArray.length-1) {
+		  currentStep++;
+		  console.log("currentStep after calling Redo= " + currentStep);
+          console.log("PushCanvasArray[currentStep]: " + PushCanvasArray[currentStep]);
+		  
+		  ctx.clearRect(0, 0, $('#canvas').width(), $('canvas').height());
+		  var canvasPic = new Image();
+		  canvasPic.src = PushCanvasArray[currentStep];
+		  canvasPic.onload = function () { ctx.drawImage(canvasPic, 0, 0); }
+	  }
+  }    
+  
+  // fn property is just an alias to the prototype property
+  // prototype to start drawing on touch using canvas moveTo and lineTo
+  $.fn.drawTouch = function() {
+      var start = function(e) {
+          e = e.originalEvent;
+          ctx.beginPath();
+          x = e.changedTouches[0].pageX;
+          y = e.changedTouches[0].pageY-44; // '44' refers to header's height 
+          ctx.moveTo(x,y);
+      };
+      var move = function(e) {
+          e.preventDefault();
+          e = e.originalEvent;
+          x = e.changedTouches[0].pageX;
+          y = e.changedTouches[0].pageY-44; // '44' refers to header's height 
+          ctx.lineTo(x,y);
+          ctx.stroke();
+      };
+      var stop = function(e) {
+		  cPush(); // cPush is called on user's finger up action
+      };	  
+      $(this).on("touchstart", start);
+      $(this).on("touchmove", move);
+	  $(this).on("touchend", stop);
+  }; 
+      
+  // prototype to start drawing on pointer(microsoft ie) using canvas moveTo and lineTo
+  $.fn.drawPointer = function() {
+      var start = function(e) {
+          e = e.originalEvent;
+          ctx.beginPath();
+          x = e.pageX;
+          y = e.pageY-44; // '44' refers to header's height 
+          ctx.moveTo(x,y);
+      };
+      var move = function(e) {
+          e.preventDefault();
+          e = e.originalEvent;
+          x = e.pageX;
+          y = e.pageY-44;
+          ctx.lineTo(x,y);
+          ctx.stroke();
+      };
+      var stop = function(e) {
+		  cPush();
+      };	  	  
+      $(this).on("MSPointerDown", start);
+      $(this).on("MSPointerMove", move);
+	  $(this).on("MSPointerUp", stop);
+  };        
+  
+  // prototype to start drawing on mouse using canvas moveTo and lineTo
+  $.fn.drawMouse = function() {
+      var clicked = 0;
+      var start = function(e) {
+          clicked = 1;
+          ctx.beginPath();
+          x = e.pageX;
+          y = e.pageY-44;
+          ctx.moveTo(x,y);
+      };
+      var move = function(e) {
+          if(clicked){
+              x = e.pageX;
+              y = e.pageY-44;
+              ctx.lineTo(x,y);
+              ctx.stroke();
+          }
+      };
+      var stop = function(e) {
+          clicked = 0;
+		  cPush();
+      };
+      $(this).on("mousedown", start);
+      $(this).on("mousemove", move);
+	  $(this).on("mouseup", stop);
+  };
+  </script>
+</head>
+
+<body>
+
+<!--[if gte IE 9]>
+  <style type="text/css">
+    .gradient {
+       filter: none;
+    }
+  </style>
+<![endif]-->
+
+<div id="page">
+    <div class="header">
+		<a id="clear" class="buttonCls gradient">CLEAR</a>
+        <a id="undo" class="buttonCls gradient">UNDO</a>
+        <a id="redo" class="buttonCls gradient">REDO</a>
+    </div>
+    <div id="content">loading new canvas...</div>
+    <div class="footer">
+		<div class="color-menu">
+			<div class="color-box">
+				<div class="scolor black"></div>
+			</div>		        
+			<div class="color-box">
+				<div class="scolor red"></div>
+			</div>
+			<div class="color-box">
+				<div class="scolor yellow"></div>
+			</div>            
+			<div class="color-box">
+				<div class="scolor blue"></div>
+			</div>
+			<div class="color-box">
+				<div class="scolor green"></div>
+			</div>
+			<div class="color-box">
+				<div class="scolor white"></div>
+			</div>	            
+		</div>
+		<div class="pencil-menu">
+			<div class="pencil-box">
+				<div class="pencil">3</div>
+			</div>	
+			<div class="pencil-box">
+				<div class="pencil">6</div>
+			</div>
+			<div class="pencil-box">
+				<div class="pencil">9</div>
+			</div>
+			<div class="pencil-box">
+				<div class="pencil">12</div>
+			</div>
+			<div class="pencil-box">
+				<div class="pencil">15</div>
+			</div>
+			<div class="pencil-box">
+				<div class="pencil">18</div>
+			</div>		            		
+			<div style="clear:both"></div>
+		</div>        
+    </div>    
+</div> 
+</body>
+</html>
+
+
+
